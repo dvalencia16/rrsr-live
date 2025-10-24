@@ -171,5 +171,52 @@
     "SPREAD_2s10s_bps": null,
     "PUT_CALL_TOTAL": null,
     "BREADTH_50dma_pct": null
-  }
+  },
+  "Prices": {
+    "SCHD": 27.03,
+    "VTI": 333.77,
+    "VXUS": 74.95,
+    "XLV": 146.04,
+    "VNQ": 92.44,
+    "BND": 75.02,
+    "GEMI": 19.84
+  },
+  "RSI": {
+    "SCHD": 50.1,
+    "VTI": 61.98,
+    "VXUS": 61.09,
+    "XLV": 70.15,
+    "VNQ": 61.06,
+    "BND": 66.56,
+    "GEMI": 36.35
+  },
+  "SST": {
+    "PLUG": {
+      "rsi": "data not available",
+      "si_percent_float": 16.67,
+      "days_to_cover": 4.0,
+      "entry": 3.1,
+      "stop": 2.72,
+      "t1": 3.45,
+      "t2": 3.9,
+      "last": "data not available",
+      "sources": [
+        "User-supplied SI/float/avgvol (free method). Edit in scripts/update_live.py"
+      ]
+    },
+    "RIOT": {
+      "rsi": "data not available",
+      "si_percent_float": 13.85,
+      "days_to_cover": 1.71,
+      "entry": 8.6,
+      "stop": 7.8,
+      "t1": 9.4,
+      "t2": 10.2,
+      "last": "data not available",
+      "sources": [
+        "User-supplied SI/float/avgvol (free method). Edit in scripts/update_live.py"
+      ]
+    }
+  },
+  "last_update_utc": "2025-10-24 21:56:10 UTC"
 }
