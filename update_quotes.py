@@ -21,15 +21,19 @@ def fh_quote(sym):
 def fh_closes(sym, days=200):
     end=int(time.time()); start=end - days*86400
     r=requests.get("https://finnhub.io/api/v1/stock/candle",
-                   params={"symbol":sym,"resolution":"D","from":start,"to":end,"token":API}, timeout=10)
+                   params={"symbol":sym,"resolution":"D","from":start,"to":end,"token":API},
+                   timeout=10)
     j=r.json(); return j["c"] if j.get("s")=="ok" else []
 
 def load_holdings():
-    h=json.load(open("holdings.json"))
+    with open("holdings.json") as f:
+        h=json.load(f)
     tickers=set()
     for arr in h.values():
-        for row in arr: tickers.add(row["ticker"])
-    tickers.update({"FNMA","FMCC"})  # ensure Fannie/Freddie included
+        for row in arr:
+            tickers.add(row["ticker"])
+    # ensure Fannie/Freddie included
+    tickers.update({"FNMA","FMCC"})
     return sorted(tickers)
 
 def build_quotes():
@@ -43,9 +47,8 @@ def build_quotes():
         except Exception:
             pass
         out.append({"ticker":t,"last":last,"rsi":rsi,"ts":ts})
-    json.dump(out, open("quotes.json","w"), indent=2)
+    with open("quotes.json","w") as f:
+        json.dump(out,f,indent=2)
 
 if __name__=="__main__":
     build_quotes()
-# ensure Fannie/Freddie included
-tickers.update({"FNMA","FMCC"})
