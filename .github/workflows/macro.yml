@@ -1,0 +1,23 @@
+name: Update macro.json
+on:
+  schedule: [ { cron: "*/15 * * * *" } ]
+  workflow_dispatch:
+permissions: { contents: write }
+concurrency: { group: macro-update, cancel-in-progress: true }
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0, persist-credentials: true }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install requests
+      - run: python update_macro.py
+      - run: git fetch origin main && git reset --hard origin/main
+      - run: |
+          git config user.name "bot"
+          git config user.email "actions@github.com"
+          git add macro.json
+          git commit -m "macro [skip ci]" || exit 0
+          git push
