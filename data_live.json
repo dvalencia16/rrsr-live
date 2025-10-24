@@ -182,13 +182,13 @@
     "GEMI": 19.84
   },
   "RSI": {
-    "SCHD": 50.1,
-    "VTI": 61.98,
-    "VXUS": 61.09,
-    "XLV": 70.15,
-    "VNQ": 61.06,
-    "BND": 66.56,
-    "GEMI": 36.35
+    "SCHD": "data not available",
+    "VTI": "data not available",
+    "VXUS": "data not available",
+    "XLV": "data not available",
+    "VNQ": "data not available",
+    "BND": "data not available",
+    "GEMI": "data not available"
   },
   "SST": {
     "PLUG": {
@@ -201,7 +201,7 @@
       "t2": 3.9,
       "last": "data not available",
       "sources": [
-        "User-supplied SI/float/avgvol (free method). Edit in scripts/update_live.py"
+        "User-supplied SI/float/avgvol in sst_inputs.json"
       ]
     },
     "RIOT": {
@@ -214,9 +214,130 @@
       "t2": 10.2,
       "last": "data not available",
       "sources": [
-        "User-supplied SI/float/avgvol (free method). Edit in scripts/update_live.py"
+        "User-supplied SI/float/avgvol in sst_inputs.json"
+      ]
+    },
+    "AFRM": {
+      "rsi": "data not available",
+      "si_percent_float": 8.4,
+      "days_to_cover": 1.75,
+      "entry": 28.5,
+      "stop": 26.9,
+      "t1": 30.8,
+      "t2": 33.0,
+      "last": "data not available",
+      "sources": [
+        "User-supplied SI/float/avgvol in sst_inputs.json"
+      ]
+    },
+    "NVTS": {
+      "rsi": "data not available",
+      "si_percent_float": 8.64,
+      "days_to_cover": 3.96,
+      "entry": 5.1,
+      "stop": 4.7,
+      "t1": 5.7,
+      "t2": 6.3,
+      "last": "data not available",
+      "sources": [
+        "User-supplied SI/float/avgvol in sst_inputs.json"
+      ]
+    },
+    "SOFI": {
+      "rsi": "data not available",
+      "si_percent_float": 12.9,
+      "days_to_cover": 2.61,
+      "entry": 7.5,
+      "stop": 6.9,
+      "t1": 8.2,
+      "t2": 8.9,
+      "last": "data not available",
+      "sources": [
+        "User-supplied SI/float/avgvol in sst_inputs.json"
       ]
     }
   },
-  "last_update_utc": "2025-10-24 21:56:10 UTC"
+  "last_update_utc": "2025-10-24 23:27:49 UTC",
+  "SST_TOP5": [
+    {
+      "ticker": "PLUG",
+      "score": 32.8,
+      "rsi": "data not available",
+      "si_percent_float": 16.67,
+      "days_to_cover": 4.0,
+      "entry": 3.1,
+      "stop": 2.72,
+      "targets": [
+        3.45,
+        3.9
+      ],
+      "sources": [
+        "User-supplied SI/float/avgvol in sst_inputs.json"
+      ]
+    },
+    {
+      "ticker": "SOFI",
+      "score": 24.0,
+      "rsi": "data not available",
+      "si_percent_float": 12.9,
+      "days_to_cover": 2.61,
+      "entry": 7.5,
+      "stop": 6.9,
+      "targets": [
+        8.2,
+        8.9
+      ],
+      "sources": [
+        "User-supplied SI/float/avgvol in sst_inputs.json"
+      ]
+    },
+    {
+      "ticker": "NVTS",
+      "score": 22.7,
+      "rsi": "data not available",
+      "si_percent_float": 8.64,
+      "days_to_cover": 3.96,
+      "entry": 5.1,
+      "stop": 4.7,
+      "targets": [
+        5.7,
+        6.3
+      ],
+      "sources": [
+        "User-supplied SI/float/avgvol in sst_inputs.json"
+      ]
+    },
+    {
+      "ticker": "RIOT",
+      "score": 22.4,
+      "rsi": "data not available",
+      "si_percent_float": 13.85,
+      "days_to_cover": 1.71,
+      "entry": 8.6,
+      "stop": 7.8,
+      "targets": [
+        9.4,
+        10.2
+      ],
+      "sources": [
+        "User-supplied SI/float/avgvol in sst_inputs.json"
+      ]
+    },
+    {
+      "ticker": "AFRM",
+      "score": 15.8,
+      "rsi": "data not available",
+      "si_percent_float": 8.4,
+      "days_to_cover": 1.75,
+      "entry": 28.5,
+      "stop": 26.9,
+      "targets": [
+        30.8,
+        33.0
+      ],
+      "sources": [
+        "User-supplied SI/float/avgvol in sst_inputs.json"
+      ]
+    }
+  ]
 }
