@@ -17,9 +17,10 @@ jobs:
           FINNHUB_KEY: ${{ secrets.FINNHUB_KEY }}
         run: python update_quotes.py
       - run: git fetch origin main && git reset --hard origin/main
-      - run: |
-          git config user.name "bot"
+      - name: Commit quotes.json
+        run: |
+          git config user.name "quotes-bot"
           git config user.email "actions@github.com"
           git add quotes.json
-          git commit -m "quotes [skip ci]" || exit 0
+          git commit -m "update quotes [skip ci]" || exit 0
           git push
