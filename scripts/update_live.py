@@ -56,10 +56,12 @@ def fetch_rsi14(ticker):
 # ---------- Short Squeeze inputs (you fill these) ----------
 # Provide: short interest shares, float shares, 30-day avg volume, plus your entry/stop/targets.
 SST_INPUTS = {
-    # Example:
-    # "PLUG": {"si_shares": 100_000_000, "float_shares": 600_000_000, "avg_vol_30d": 25_000_000,
-    #          "entry": 3.10, "stop": 2.72, "t1": 3.45, "t2": 3.90}
+  "PLUG": {"si_shares": 100000000, "float_shares": 600000000, "avg_vol_30d": 25000000,
+           "entry": 3.10, "stop": 2.72, "t1": 3.45, "t2": 3.90},
+  "RIOT": {"si_shares": 36000000,  "float_shares": 260000000, "avg_vol_30d": 21000000,
+           "entry": 8.60, "stop": 7.80, "t1": 9.40, "t2": 10.20}
 }
+
 
 def build_sst(prices, rsi_map):
     out = {}
