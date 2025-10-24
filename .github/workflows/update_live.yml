@@ -23,32 +23,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Ensure base files exist
-        shell: bash
-        run: |
-          if [ ! -f data_live.json ]; then
-            cat > data_live.json << 'JSON'
-{
-  "Prices": {},
-  "RSI": {},
-  "SST": {},
-  "SST_TOP5": [],
-  "last_update_utc": ""
-}
-JSON
-          fi
-          if [ ! -f sst_inputs.json ]; then
-            cat > sst_inputs.json << 'JSON'
-{
-  "PLUG": { "si_shares": 100000000, "float_shares": 600000000, "avg_vol_30d": 25000000, "entry": 3.10, "stop": 2.72, "t1": 3.45, "t2": 3.90 },
-  "RIOT": { "si_shares": 36000000,  "float_shares": 260000000, "avg_vol_30d": 21000000, "entry": 8.60, "stop": 7.80, "t1": 9.40, "t2": 10.20 },
-  "AFRM": { "si_shares": 21000000,  "float_shares": 250000000, "avg_vol_30d": 12000000, "entry": 28.50, "stop": 26.90, "t1": 30.80, "t2": 33.00 },
-  "NVTS": { "si_shares": 9500000,   "float_shares": 110000000, "avg_vol_30d": 2400000,  "entry": 5.10, "stop": 4.70, "t1": 5.70, "t2": 6.30 },
-  "SOFI": { "si_shares": 120000000, "float_shares": 930000000, "avg_vol_30d": 46000000, "entry": 7.50, "stop": 6.90, "t1": 8.20, "t2": 8.90 }
-}
-JSON
-          fi
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -73,6 +47,7 @@ import yfinance as yf
 LIVE_PATH = "data_live.json"
 SST_PATH  = "sst_inputs.json"
 
+# ---------- helpers ----------
 def rsi_wilder(series, period=14):
     delta = series.diff()
     gain = delta.clip(lower=0)
@@ -185,26 +160,44 @@ def top5_from_sst(sst_dict):
     rows.sort(key=lambda x: x["score"], reverse=True)
     return rows[:5]
 
+def ensure_defaults():
+    if not os.path.exists(LIVE_PATH):
+        safe_write_json(LIVE_PATH, {"Prices": {}, "RSI": {}, "SST": {}, "SST_TOP5": [], "last_update_utc": ""})
+    if not os.path.exists(SST_PATH):
+        safe_write_json(SST_PATH, {
+            "PLUG": {"si_shares": 100000000, "float_shares": 600000000, "avg_vol_30d": 25000000, "entry": 3.10, "stop": 2.72, "t1": 3.45, "t2": 3.90},
+            "RIOT": {"si_shares": 36000000,  "float_shares": 260000000, "avg_vol_30d": 21000000, "entry": 8.60, "stop": 7.80, "t1": 9.40, "t2": 10.20},
+            "AFRM": {"si_shares": 21000000,  "float_shares": 250000000, "avg_vol_30d": 12000000, "entry": 28.50, "stop": 26.90, "t1": 30.80, "t2": 33.00},
+            "NVTS": {"si_shares": 9500000,   "float_shares": 110000000, "avg_vol_30d": 2400000,  "entry": 5.10, "stop": 4.70, "t1": 5.70, "t2": 6.30},
+            "SOFI": {"si_shares": 120000000, "float_shares": 930000000, "avg_vol_30d": 46000000, "entry": 7.50, "stop": 6.90, "t1": 8.20, "t2": 8.90}
+        })
+
 def main():
+    ensure_defaults()
     tickers = os.getenv("TICKERS", "SCHD,VTI,VXUS,XLV,VNQ,BND,GEMI").split(",")
     tickers = [t.strip().upper() for t in tickers if t.strip()]
     data = safe_load_json(LIVE_PATH, {"Prices": {}, "RSI": {}, "SST": {}, "SST_TOP5": [], "last_update_utc": ""})
+
     prices = {}
     for tk in tickers:
         prices[tk] = fetch_last_price(tk)
         time.sleep(0.2)
+
     rsi_map = {}
     for tk in tickers:
         rsi_map[tk] = fetch_rsi14(tk)
+
     data.setdefault("Prices", {})
     for tk in tickers:
         if prices[tk] is not None:
             data["Prices"][tk] = prices[tk]
     data["RSI"] = {tk: (rsi_map[tk] if rsi_map[tk] is not None else "data not available") for tk in tickers}
+
     sst_inputs = safe_load_json(SST_PATH, {})
     sst = build_sst(prices, data["RSI"], sst_inputs)
     data["SST"] = sst
     data["SST_TOP5"] = top5_from_sst(sst)
+
     data["last_update_utc"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     safe_write_json(LIVE_PATH, data)
 
@@ -225,4 +218,3 @@ PY
             git commit -m "auto: prices + RSI + SST + Top5"
             git push
           fi
- 
