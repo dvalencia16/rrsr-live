@@ -59,8 +59,11 @@ SST_INPUTS = {
   "PLUG": {"si_shares": 100000000, "float_shares": 600000000, "avg_vol_30d": 25000000,
            "entry": 3.10, "stop": 2.72, "t1": 3.45, "t2": 3.90},
   "RIOT": {"si_shares": 36000000,  "float_shares": 260000000, "avg_vol_30d": 21000000,
-           "entry": 8.60, "stop": 7.80, "t1": 9.40, "t2": 10.20}
+           "entry": 8.60, "stop": 7.80, "t1": 9.40, "t2": 10.20},
+  "AFRM": {"si_shares": 21000000,  "float_shares": 250000000, "avg_vol_30d": 12000000,
+           "entry": 28.50, "stop": 26.90, "t1": 30.80, "t2": 33.00}
 }
+
 
 
 def build_sst(prices, rsi_map):
