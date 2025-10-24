@@ -21,8 +21,7 @@ def fh_quote(sym):
 def fh_closes(sym, days=200):
     end=int(time.time()); start=end - days*86400
     r=requests.get("https://finnhub.io/api/v1/stock/candle",
-                   params={"symbol":sym,"resolution":"D","from":start,"to":end,"token":API},
-                   timeout=10)
+                   params={"symbol":sym,"resolution":"D","from":start,"to":end,"token":API}, timeout=10)
     j=r.json(); return j["c"] if j.get("s")=="ok" else []
 
 def load_holdings():
