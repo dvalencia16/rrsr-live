@@ -1,0 +1,25 @@
+name: Update quotes.json
+on:
+  schedule: [ { cron: "*/5 * * * *" } ]
+  workflow_dispatch:
+permissions: { contents: write }
+concurrency: { group: quotes-update, cancel-in-progress: true }
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0, persist-credentials: true }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install requests
+      - env:
+          FINNHUB_KEY: ${{ secrets.FINNHUB_KEY }}
+        run: python update_quotes.py
+      - run: git fetch origin main && git reset --hard origin/main
+      - run: |
+          git config user.name "bot"
+          git config user.email "actions@github.com"
+          git add quotes.json
+          git commit -m "quotes [skip ci]" || exit 0
+          git push
