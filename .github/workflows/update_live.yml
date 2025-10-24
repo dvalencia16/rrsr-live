@@ -225,3 +225,4 @@ PY
             git commit -m "auto: prices + RSI + SST + Top5"
             git push
           fi
+ 
