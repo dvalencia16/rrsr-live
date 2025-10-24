@@ -1,0 +1,43 @@
+name: Update live data (prices, RSI, SST)
+
+on:
+  schedule:
+    # Weekdays, every 15 min during 06:00–13:15 PT (market hours + pre)
+    - cron: "*/15 13-20 * * 1-5"
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install yfinance pandas numpy
+
+      - name: Run updater
+        env:
+          # Comma-separated tickers you track in R1
+          TICKERS: "SCHD,VTI,VXUS,XLV,VNQ,BND,GEMI"
+        run: |
+          python scripts/update_live.py
+
+      - name: Commit changes
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add data_live.json
+            git commit -m "auto: refresh prices + RSI + SST"
+            git push
+          fi
