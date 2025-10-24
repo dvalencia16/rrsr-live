@@ -5,4 +5,4 @@
   "NVTS":  { "si_shares": 9500000,   "float_shares": 110000000, "avg_vol_30d": 2400000,  "entry": 5.10, "stop": 4.70, "t1": 5.70, "t2": 6.30 },
   "SOFI":  { "si_shares": 120000000, "float_shares": 930000000, "avg_vol_30d": 46000000, "entry": 7.50, "stop": 6.90, "t1": 8.20, "t2": 8.90 }
 }
- 
+  
