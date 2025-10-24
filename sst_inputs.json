@@ -1,0 +1,7 @@
+{
+  "PLUG":  { "si_shares": 100000000, "float_shares": 600000000, "avg_vol_30d": 25000000, "entry": 3.10, "stop": 2.72, "t1": 3.45, "t2": 3.90 },
+  "RIOT":  { "si_shares": 36000000,  "float_shares": 260000000, "avg_vol_30d": 21000000, "entry": 8.60, "stop": 7.80, "t1": 9.40, "t2": 10.20 },
+  "AFRM":  { "si_shares": 21000000,  "float_shares": 250000000, "avg_vol_30d": 12000000, "entry": 28.50, "stop": 26.90, "t1": 30.80, "t2": 33.00 },
+  "NVTS":  { "si_shares": 9500000,   "float_shares": 110000000, "avg_vol_30d": 2400000,  "entry": 5.10, "stop": 4.70, "t1": 5.70, "t2": 6.30 },
+  "SOFI":  { "si_shares": 120000000, "float_shares": 930000000, "avg_vol_30d": 46000000, "entry": 7.50, "stop": 6.90, "t1": 8.20, "t2": 8.90 }
+}
