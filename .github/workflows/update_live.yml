@@ -131,11 +131,15 @@ def build_sst(prices, rsi_map, sst_inputs):
         rsi_val = rsi_map.get(tk)
         last    = prices.get(tk)
         def pct(x, y):
-            try: return round(100 * x / y, 2) if x is not None and y else None
-            except: return None
+            try:
+                return round(100 * x / y, 2) if x is not None and y else None
+            except Exception:
+                return None
         def div(x, y):
-            try: return round(x / y, 2) if x is not None and y else None
-            except: return None
+            try:
+                return round(x / y, 2) if x is not None and y else None
+            except Exception:
+                return None
         out[tk] = {
             "rsi": rsi_val if rsi_val is not None else "data not available",
             "si_percent_float": pct(si_sh, flt) if pct(si_sh, flt) is not None else "data not available",
@@ -150,8 +154,10 @@ def build_sst(prices, rsi_map, sst_inputs):
     return out
 
 def _to_num(x):
-    try: return float(x)
-    except: return None
+    try:
+        return float(x)
+    except Exception:
+        return None
 
 def squeeze_score(item):
     rsi = _to_num(item.get("rsi"))
