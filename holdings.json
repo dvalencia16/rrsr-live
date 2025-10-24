@@ -1,0 +1,30 @@
+{
+  "R1": [
+    {"ticker":"SCHD","shares":113.364,"avg_cost":27.03},
+    {"ticker":"VXUS","shares":30.203,"avg_cost":73.58},
+    {"ticker":"GEMI","shares":20.592,"avg_cost":34.93},
+    {"ticker":"VTI","shares":14.312,"avg_cost":322.24},
+    {"ticker":"BND","shares":39.1312,"avg_cost":74.29},
+    {"ticker":"VNQ","shares":5.650,"avg_cost":93.48},
+    {"ticker":"XLV","shares":5.098,"avg_cost":140.38}
+  ],
+  "R2": [
+    {"ticker":"SCHD","shares":164.757,"avg_cost":27.18},
+    {"ticker":"VXUS","shares":27.8257,"avg_cost":73.0686},
+    {"ticker":"BNDX","shares":23.1361,"avg_cost":49.3441},
+    {"ticker":"VTI","shares":1.0991,"avg_cost":325.53}
+  ],
+  "R3": [
+    {"ticker":"VTI","shares":4.67349,"avg_cost":325.53},
+    {"ticker":"SCHD","shares":45.22453,"avg_cost":27.40},
+    {"ticker":"BNDX","shares":13.84614,"avg_cost":49.45},
+    {"ticker":"VXUS","shares":8.97822,"avg_cost":72.19},
+    {"ticker":"GEMI","shares":1.00000,"avg_cost":41.06}
+  ],
+  "R4": [
+    {"ticker":"VTI","shares":2.15822,"avg_cost":326.49},
+    {"ticker":"SCHD","shares":16.68324,"avg_cost":27.12},
+    {"ticker":"VXUS","shares":3.44871,"avg_cost":74.08},
+    {"ticker":"BND","shares":4.72090,"avg_cost":74.74}
+  ]
+}
