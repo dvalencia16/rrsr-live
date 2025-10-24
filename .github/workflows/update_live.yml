@@ -2,7 +2,7 @@ name: Update live data (prices, RSI, SST)
 
 on:
   schedule:
-    # Weekdays, every 15 min during 06:00–13:15 PT (market hours + pre)
+    # Weekdays, every 15 min during 06:00–13:15 PT
     - cron: "*/15 13-20 * * 1-5"
   workflow_dispatch:
 
@@ -27,7 +27,7 @@ jobs:
 
       - name: Run updater
         env:
-          # Comma-separated tickers you track in R1
+          # Edit this list if needed
           TICKERS: "SCHD,VTI,VXUS,XLV,VNQ,BND,GEMI"
         run: |
           python scripts/update_live.py
