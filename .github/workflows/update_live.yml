@@ -22,6 +22,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+            fetch-depth: 0   # allow pull/rebase
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -204,13 +206,15 @@ jobs:
       - name: Run updater
         run: python scripts/update_live.py
 
-      - name: Commit changes
+      - name: Commit changes (pull then push)
         shell: bash
         run: |
           if [[ -n "$(git status --porcelain)" ]]; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
+            git fetch origin main
+            git pull --rebase origin main
             git add scripts/update_live.py data_live.json sst_inputs.json
-            git commit -m "auto: prices + RSI + SST + Top5"
-            git push
+            git commit -m "auto: prices + RSI + SST + Top5" || echo "No changes to commit"
+            git push origin HEAD:main
           fi
