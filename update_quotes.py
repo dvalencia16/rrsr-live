@@ -47,3 +47,5 @@ def build_quotes():
 
 if __name__=="__main__":
     build_quotes()
+# ensure Fannie/Freddie included
+tickers.update({"FNMA","FMCC"})
