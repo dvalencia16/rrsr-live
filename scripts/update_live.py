@@ -79,6 +79,45 @@ def build_sst(prices, rsi_map):
 
         rsi_val = rsi_map.get(tk)
         last = prices.get(tk)
+def _to_num(x):
+    try:
+        return float(x)
+    except Exception:
+        return None
+
+def squeeze_score(item):
+    # Higher is better: high SI%, high DTC, low RSI
+    rsi = _to_num(item.get("rsi"))
+    si_pct = _to_num(item.get("si_percent_float"))
+    dtc = _to_num(item.get("days_to_cover"))
+
+    if si_pct is None and dtc is None and rsi is None:
+        return 0.0
+
+    si_norm  = min(max((si_pct or 0.0), 0.0), 40.0) / 40.0      # cap 40%
+    dtc_norm = min(max((dtc or 0.0), 0.0), 10.0) / 10.0         # cap 10 days
+    rsi_norm = 0.0 if rsi is None else max(0.0, 70.0 - rsi) / 70.0  # oversold better
+
+    score = 0.5*si_norm + 0.3*dtc_norm + 0.2*rsi_norm
+    return round(score*100, 1)
+
+def top5_from_sst(sst_dict):
+    rows = []
+    for tk, v in sst_dict.items():
+        sc = squeeze_score(v)
+        rows.append({
+            "ticker": tk,
+            "score": sc,
+            "rsi": v.get("rsi"),
+            "si_percent_float": v.get("si_percent_float"),
+            "days_to_cover": v.get("days_to_cover"),
+            "entry": v.get("entry"),
+            "stop": v.get("stop"),
+            "targets": [v.get("t1"), v.get("t2")],
+            "sources": v.get("sources", [])
+        })
+    rows.sort(key=lambda x: x["score"], reverse=True)
+    return rows[:5]
 
         def safe_pct(x, y):
             try:
