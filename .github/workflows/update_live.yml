@@ -10,8 +10,7 @@ on:
       - 'data_live.json'
       - '.github/workflows/update_live.yml'
   schedule:
-    # Weekdays, every 5 min during 06:00–13:59 PT
-    - cron: "*/5 13-21 * * 1-5"
+    - cron: "*/5 13-21 * * 1-5"  # weekdays, every 5 min during 06:00–13:59 PT
 
 jobs:
   run:
@@ -27,7 +26,6 @@ jobs:
       - name: Ensure base files exist
         shell: bash
         run: |
-          # data_live.json
           if [ ! -f data_live.json ]; then
             cat > data_live.json << 'JSON'
 {
@@ -39,7 +37,6 @@ jobs:
 }
 JSON
           fi
-          # sst_inputs.json (editable list; change numbers later)
           if [ ! -f sst_inputs.json ]; then
             cat > sst_inputs.json << 'JSON'
 {
@@ -76,7 +73,6 @@ import yfinance as yf
 LIVE_PATH = "data_live.json"
 SST_PATH  = "sst_inputs.json"
 
-# ---------- Helpers ----------
 def rsi_wilder(series, period=14):
     delta = series.diff()
     gain = delta.clip(lower=0)
@@ -122,40 +118,24 @@ def fetch_rsi14(ticker):
     except Exception:
         return None
 
-# ---------- Build SST from user inputs ----------
 def build_sst(prices, rsi_map, sst_inputs):
     out = {}
     for tk, vals in sst_inputs.items():
-        si_sh = vals.get("si_shares")
-        flt   = vals.get("float_shares")
-        avgv  = vals.get("avg_vol_30d")
-        entry = vals.get("entry")
-        stop  = vals.get("stop")
-        t1    = vals.get("t1")
-        t2    = vals.get("t2")
+        si_sh = vals.get("si_shares"); flt = vals.get("float_shares"); avgv = vals.get("avg_vol_30d")
+        entry = vals.get("entry"); stop = vals.get("stop"); t1 = vals.get("t1"); t2 = vals.get("t2")
+        rsi_val = rsi_map.get(tk); last = prices.get(tk)
 
-        rsi_val = rsi_map.get(tk)
-        last    = prices.get(tk)
-
-        def safe_pct(x, y):
-            try:
-                return round(100 * x / y, 2) if x is not None and y else None
-            except Exception:
-                return None
-
-        def safe_div(x, y):
-            try:
-                return round(x / y, 2) if x is not None and y else None
-            except Exception:
-                return None
-
-        si_pct_float = safe_pct(si_sh, flt)
-        dtc          = safe_div(si_sh, avgv)
+        def pct(x, y): 
+            try: return round(100 * x / y, 2) if x is not None and y else None
+            except: return None
+        def div(x, y):
+            try: return round(x / y, 2) if x is not None and y else None
+            except: return None
 
         out[tk] = {
             "rsi": rsi_val if rsi_val is not None else "data not available",
-            "si_percent_float": si_pct_float if si_pct_float is not None else "data not available",
-            "days_to_cover": dtc if dtc is not None else "data not available",
+            "si_percent_float": pct(si_sh, flt) if pct(si_sh, flt) is not None else "data not available",
+            "days_to_cover": div(si_sh, avgv) if div(si_sh, avgv) is not None else "data not available",
             "entry": entry if entry is not None else "data not available",
             "stop":  stop  if stop  is not None else "data not available",
             "t1":    t1    if t1    is not None else "data not available",
@@ -166,18 +146,12 @@ def build_sst(prices, rsi_map, sst_inputs):
     return out
 
 def _to_num(x):
-    try:
-        return float(x)
-    except Exception:
-        return None
+    try: return float(x)
+    except: return None
 
 def squeeze_score(item):
-    # Higher is better: high SI%, high DTC, low RSI
-    rsi = _to_num(item.get("rsi"))
-    si  = _to_num(item.get("si_percent_float"))
-    dtc = _to_num(item.get("days_to_cover"))
-    if si is None and dtc is None and rsi is None:
-        return 0.0
+    rsi = _to_num(item.get("rsi")); si = _to_num(item.get("si_percent_float")); dtc = _to_num(item.get("days_to_cover"))
+    if si is None and dtc is None and rsi is None: return 0.0
     si_norm  = min(max((si or 0.0), 0.0), 40.0) / 40.0
     dtc_norm = min(max((dtc or 0.0), 0.0), 10.0) / 10.0
     rsi_norm = 0.0 if rsi is None else max(0.0, 70.0 - rsi) / 70.0
@@ -187,45 +161,48 @@ def top5_from_sst(sst_dict):
     rows = []
     for tk, v in sst_dict.items():
         rows.append({
-            "ticker": tk,
-            "score": squeeze_score(v),
-            "rsi": v.get("rsi"),
-            "si_percent_float": v.get("si_percent_float"),
+            "ticker": tk, "score": squeeze_score(v),
+            "rsi": v.get("rsi"), "si_percent_float": v.get("si_percent_float"),
             "days_to_cover": v.get("days_to_cover"),
-            "entry": v.get("entry"),
-            "stop": v.get("stop"),
-            "targets": [v.get("t1"), v.get("t2")],
-            "sources": v.get("sources", [])
+            "entry": v.get("entry"), "stop": v.get("stop"),
+            "targets": [v.get("t1"), v.get("t2")], "sources": v.get("sources", [])
         })
     rows.sort(key=lambda x: x["score"], reverse=True)
     return rows[:5]
 
-# ---------- Main ----------
 def main():
     tickers = os.getenv("TICKERS", "SCHD,VTI,VXUS,XLV,VNQ,BND,GEMI").split(",")
     tickers = [t.strip().upper() for t in tickers if t.strip()]
-
     data = safe_load_json(LIVE_PATH, {"Prices": {}, "RSI": {}, "SST": {}, "SST_TOP5": [], "last_update_utc": ""})
 
-    # Prices
     prices = {}
     for tk in tickers:
-        prices[tk] = fetch_last_price(tk)
-        time.sleep(0.2)
+        prices[tk] = fetch_last_price(tk); time.sleep(0.2)
 
-    # RSI
     rsi_map = {}
     for tk in tickers:
         rsi_map[tk] = fetch_rsi14(tk)
 
-    # Merge
     data.setdefault("Prices", {})
     for tk in tickers:
         if prices[tk] is not None:
             data["Prices"][tk] = prices[tk]
     data["RSI"] = {tk: (rsi_map[tk] if rsi_map[tk] is not None else "data not available") for tk in tickers}
 
-    # SST + Top5
     sst_inputs = safe_load_json(SST_PATH, {})
     sst = build_sst(prices, data["RSI"], sst_inputs)
     data["SST"] = sst
+    data["SST_TOP5"] = top5_from_sst(sst)
+
+    data["last_update_utc"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    safe_write_json(LIVE_PATH, data)
+
+if __name__ == "__main__":
+    main()
+PY
+
+      - name: Run updater
+        run: python scripts/update_live.py
+
+      - name: Commit changes
+        shell: bash
