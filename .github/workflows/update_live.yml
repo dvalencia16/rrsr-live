@@ -1,4 +1,4 @@
-name: Update live data (robust)
+name: Update live data (holdings prices + RSI + SST + Market)
 
 on:
   workflow_dispatch:
@@ -15,170 +15,219 @@ on:
 jobs:
   run:
     runs-on: ubuntu-latest
-    permissions: { contents: write }
+    permissions:
+      contents: write
     env:
       TICKERS: "SCHD,VTI,VXUS,XLV,VNQ,BND,GEMI"
     steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.11" }
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
       - name: Install deps
         run: |
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade pip setuptools wheel
           pip install --no-cache-dir yfinance==0.2.43 pandas==2.2.2 numpy==1.26.4
 
-      - name: Write updater
+      - name: Write updater script
         shell: bash
         run: |
           mkdir -p scripts
           cat > scripts/update_live.py <<'PY'
-import json, os, time, sys
+import json, os, time
 from datetime import datetime, timezone
-import numpy as np, pandas as pd, yfinance as yf
+import numpy as np
+import pandas as pd
+import yfinance as yf
 
-LIVE_PATH = "data_live.json"; SST_PATH = "sst_inputs.json"
+LIVE_PATH = "data_live.json"
+SST_PATH  = "sst_inputs.json"
 
-def load(path, default): 
-    try: 
-        with open(path,"r") as f: return json.load(f)
-    except: 
+def safe_load_json(path, default):
+    try:
+        with open(path, "r") as f:
+            return json.load(f)
+    except Exception:
         return default
 
-def dump(path, obj):
-    with open(path,"w") as f: json.dump(obj, f, indent=2, ensure_ascii=False)
+def safe_write_json(path, obj):
+    with open(path, "w") as f:
+        json.dump(obj, f, indent=2, ensure_ascii=False)
 
 def rsi_wilder(series, period=14):
-    delta = series.diff(); gain = delta.clip(lower=0); loss = -delta.clip(upper=0)
-    ag = gain.ewm(alpha=1/period, adjust=False).mean()
-    al = loss.ewm(alpha=1/period, adjust=False).mean()
-    rs = ag / (al.replace(0, 1e-12)); return float(round(100 - 100/(1+rs.iloc[-1]), 2))
+    delta = series.diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+    avg_gain = gain.ewm(alpha=1/period, adjust=False).mean()
+    avg_loss = loss.ewm(alpha=1/period, adjust=False).mean()
+    rs = avg_gain / (avg_loss.replace(0, 1e-12))
+    rsi = 100 - (100 / (1 + rs))
+    return float(round(rsi.iloc[-1], 2))
 
-def last_price_fast(t):
+def fetch_prices_and_rsi(tickers):
+    prices = {t: None for t in tickers}
+    rsi    = {t: "data not available" for t in tickers}
     try:
-        fi = yf.Ticker(t).fast_info
-        v = fi.get("last_price") or fi.get("lastPrice") or fi.get("regular_market_price")
-        if v: return float(round(float(v),2))
-    except Exception: pass
-    return None
-
-def last_price_daily(t):
-    try:
-        d = yf.download(t, period="5d", interval="1d", progress=False, auto_adjust=False)
-        if d is not None and not d.empty:
-            return float(round(d["Close"].dropna().iloc[-1],2))
-    except Exception: pass
-    return None
-
-def rsi_daily(t):
-    try:
-        d = yf.download(t, period="6mo", interval="1d", progress=False, auto_adjust=False)
-        if d is None or d.empty or len(d)<20: return None
-        return rsi_wilder(d["Close"])
-    except Exception: return None
-
-def prices_and_rsi(tickers):
-    prices, rsis = {}, {}
+        df1 = yf.download(tickers=tickers, period="1d", interval="1m",
+                          progress=False, auto_adjust=False, group_by="ticker")
+    except Exception:
+        df1 = None
     for t in tickers:
-        p = last_price_fast(t)
-        if p is None: p = last_price_daily(t)
-        prices[t] = p if p is not None else "data not available"
-        r = rsi_daily(t)
-        rsis[t] = r if r is not None else "data not available"
-        print(f"[{t}] price={prices[t]} rsi={rsis[t]}", flush=True)
-        time.sleep(0.2)
-    return prices, rsis
+        try:
+            sub = df1 if isinstance(df1, pd.DataFrame) and "Close" in df1.columns else (df1.get(t) if df1 is not None else None)
+            if sub is not None and not sub.empty:
+                c = sub["Close"] if "Close" in sub else sub["Close"]
+                if c is not None and not c.empty:
+                    prices[t] = float(round(c.dropna().iloc[-1], 2))
+        except Exception:
+            pass
+    missing = [t for t,v in prices.items() if v is None]
+    if missing:
+        try:
+            df2 = yf.download(tickers=missing, period="5d", interval="1d",
+                              progress=False, auto_adjust=False, group_by="ticker")
+        except Exception:
+            df2 = None
+        for t in missing:
+            try:
+                sub = df2 if isinstance(df2, pd.DataFrame) and "Close" in df2.columns else (df2.get(t) if df2 is not None else None)
+                if sub is not None and not sub.empty:
+                    c = sub["Close"] if "Close" in sub else sub["Close"]
+                    if c is not None and not c.empty:
+                        prices[t] = float(round(c.dropna().iloc[-1], 2))
+            except Exception:
+                pass
+    try:
+        df3 = yf.download(tickers=tickers, period="6mo", interval="1d",
+                          progress=False, auto_adjust=False, group_by="ticker")
+    except Exception:
+        df3 = None
+    for t in tickers:
+        try:
+            sub = df3 if isinstance(df3, pd.DataFrame) and "Close" in df3.columns else (df3.get(t) if df3 is not None else None)
+            if sub is not None and not sub.empty and len(sub) >= 20:
+                close = sub["Close"] if "Close" in sub else sub["Close"]
+                rsi[t] = rsi_wilder(close)
+        except Exception:
+            pass
+    return prices, rsi
 
-def build_sst(prices, rsis, inputs):
+def build_sst(prices, rsi_map, sst_inputs):
     out = {}
-    for tk, v in inputs.items():
-        def pct(x,y): 
-            try: return round(100*x/y,2)
+    for tk, vals in sst_inputs.items():
+        si_sh = vals.get("si_shares"); flt = vals.get("float_shares"); avgv = vals.get("avg_vol_30d")
+        entry = vals.get("entry"); stop = vals.get("stop"); t1 = vals.get("t1"); t2 = vals.get("t2")
+        def pct(x,y):
+            try: return round(100*x/y,2) if x is not None and y else None
             except: return None
         def div(x,y):
-            try: return round(x/y,2)
+            try: return round(x/y,2) if x is not None and y else None
             except: return None
-        out[tk]={
-            "rsi": rsis.get(tk,"data not available"),
-            "si_percent_float": pct(v.get("si_shares"), v.get("float_shares")) or "data not available",
-            "days_to_cover": div(v.get("si_shares"), v.get("avg_vol_30d")) or "data not available",
-            "entry": v.get("entry","data not available"),
-            "stop":  v.get("stop","data not available"),
-            "t1":    v.get("t1","data not available"),
-            "t2":    v.get("t2","data not available"),
-            "last":  prices.get(tk,"data not available"),
+        out[tk] = {
+            "rsi": rsi_map.get(tk, "data not available") if rsi_map.get(tk) is not None else "data not available",
+            "si_percent_float": pct(si_sh, flt) if pct(si_sh, flt) is not None else "data not available",
+            "days_to_cover": div(si_sh, avgv) if div(si_sh, avgv) is not None else "data not available",
+            "entry": entry if entry is not None else "data not available",
+            "stop":  stop  if stop  is not None else "data not available",
+            "t1":    t1    if t1    is not None else "data not available",
+            "t2":    t2    if t2    is not None else "data not available",
+            "last":  prices.get(tk, "data not available"),
             "sources": ["sst_inputs.json"]
         }
     return out
 
-def score(item):
-    def num(x):
-        try: return float(x)
-        except: return None
-    r, s, d = num(item.get("rsi")), num(item.get("si_percent_float")), num(item.get("days_to_cover"))
-    sN = min(max((s or 0),0),40)/40; dN=min(max((d or 0),0),10)/10; rN=0 if r is None else max(0,70-r)/70
-    return round((0.5*sN+0.3*dN+0.2*rN)*100,1)
+def _to_num(x):
+    try: return float(x)
+    except: return None
 
-def top5(sst):
-    rows=[{"ticker":k,"score":score(v),**{kk:v.get(kk) for kk in ["rsi","si_percent_float","days_to_cover","entry","stop"]},"targets":[v.get("t1"),v.get("t2")],"sources":v.get("sources",[])} for k,v in sst.items()]
-    rows.sort(key=lambda x:x["score"], reverse=True); return rows[:5]
+def squeeze_score(item):
+    rsi = _to_num(item.get("rsi")); si = _to_num(item.get("si_percent_float")); dtc = _to_num(item.get("days_to_cover"))
+    si_norm  = min(max((si or 0.0), 0.0), 40.0)/40.0
+    dtc_norm = min(max((dtc or 0.0), 0.0), 10.0)/10.0
+    rsi_norm = 0.0 if rsi is None else max(0.0, 70.0 - rsi)/70.0
+    return round((0.5*si_norm + 0.3*dtc_norm + 0.2*rsi_norm)*100, 1)
 
-def market_bullets():
-    out={}; bullets=[]
-    for tk,lab in [("SPY","SPY"),("QQQ","QQQ"),("^VIX","VIX")]:
+def top5_from_sst(sst):
+    rows = []
+    for tk,v in sst.items():
+        rows.append({
+            "ticker": tk,
+            "score": squeeze_score(v),
+            "rsi": v.get("rsi"),
+            "si_percent_float": v.get("si_percent_float"),
+            "days_to_cover": v.get("days_to_cover"),
+            "entry": v.get("entry"),
+            "stop": v.get("stop"),
+            "targets": [v.get("t1"), v.get("t2")],
+            "sources": v.get("sources", [])
+        })
+    rows.sort(key=lambda x: x["score"], reverse=True)
+    return rows[:5]
+
+def build_market_bullets():
+    out = {}; bullets = []
+    for tk,label in [("SPY","SPY"),("QQQ","QQQ"),("^VIX","VIX")]:
         try:
-            d=yf.download(tk,period="1d",interval="1m",progress=False,auto_adjust=False)
-            if d is not None and not d.empty:
-                last=float(round(d["Close"].dropna().iloc[-1],2)); base=float(d["Close"].dropna().iloc[0])
-                pct=round(100*(last/base-1),2) if base else None
-                out[tk]={"last":last,"pct_change":pct}
-                if pct is not None: bullets.append(f"{lab} {pct}% today")
+            d1 = yf.download(tk, period="1d", interval="1m", progress=False, auto_adjust=False)
+            if d1 is not None and not d1.empty:
+                last = round(float(d1["Close"].dropna().iloc[-1]),2)
+                base = float(d1["Close"].dropna().iloc[0])
+                pct = round(100*(last/base-1),2) if base else None
+                out[tk] = {"last": last, "pct_change": pct}
+                if pct is not None:
+                    bullets.append(f"{label} {pct}% today")
             else:
-                out[tk]={"last":"data not available","pct_change":"data not available"}
+                out[tk] = {"last":"data not available","pct_change":"data not available"}
         except Exception:
-            out[tk]={"last":"data not available","pct_change":"data not available"}
-    # Fannie/Freddie
-    for tk in ["FNMA","FMCC"]:
-        p=last_price_fast(tk) or last_price_daily(tk)
-        out[tk]={"last": p if p is not None else "data not available"}
-    return {"ticks":out,"bullets":bullets,"sources":["yfinance"]}
+            out[tk] = {"last":"data not available","pct_change":"data not available"}
+    return {"ticks": out, "bullets": bullets, "sources": ["yfinance"]}
 
-def ensure_files():
+def ensure_defaults():
     if not os.path.exists(LIVE_PATH):
-        dump(LIVE_PATH, {"Prices": {}, "RSI": {}, "SST": {}, "SST_TOP5": [], "Market": {}, "last_update_utc": ""})
+        safe_write_json(LIVE_PATH, {"Prices": {}, "RSI": {}, "SST": {}, "SST_TOP5": [], "Market": {}, "last_update_utc": ""})
     if not os.path.exists(SST_PATH):
-        dump(SST_PATH, {
-          "PLUG":{"si_shares":100000000,"float_shares":600000000,"avg_vol_30d":25000000,"entry":3.10,"stop":2.72,"t1":3.45,"t2":3.90},
-          "RIOT":{"si_shares":36000000,"float_shares":260000000,"avg_vol_30d":21000000,"entry":8.60,"stop":7.80,"t1":9.40,"t2":10.20}
+        safe_write_json(SST_PATH, {
+            "PLUG": {"si_shares": 100000000, "float_shares": 600000000, "avg_vol_30d": 25000000, "entry": 3.10, "stop": 2.72, "t1": 3.45, "t2": 3.90},
+            "RIOT": {"si_shares": 36000000,  "float_shares": 260000000, "avg_vol_30d": 21000000, "entry": 8.60, "stop": 7.80, "t1": 9.40, "t2": 10.20}
         })
 
 def main():
-    ensure_files()
-    tickers=[t.strip().upper() for t in os.getenv("TICKERS","").split(",") if t.strip()]
-    data=load(LIVE_PATH, {"Prices": {}, "RSI": {}, "SST": {}, "SST_TOP5": [], "Market": {}, "last_update_utc": ""})
-    prices, rsis = prices_and_rsi(tickers)
-    data["Prices"]=prices; data["RSI"]=rsis
-    sstin=load(SST_PATH,{})
-    sst=build_sst(prices, rsis, sstin)
-    data["SST"]=sst; data["SST_TOP5"]=top5(sst)
-    data["Market"]=market_bullets()
-    data["last_update_utc"]=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-    dump(LIVE_PATH,data)
+    ensure_defaults()
+    tickers = [t.strip().upper() for t in os.getenv("TICKERS","").split(",") if t.strip()]
+    data = safe_load_json(LIVE_PATH, {"Prices": {}, "RSI": {}, "SST": {}, "SST_TOP5": [], "Market": {}, "last_update_utc": ""})
 
-if __name__=="__main__": main()
+    prices, rsi = fetch_prices_and_rsi(tickers)
+    data["Prices"] = {t: (v if v is not None else "data not available") for t,v in prices.items()}
+    data["RSI"]    = {t: rsi.get(t, "data not available") for t in tickers}
+
+    sst_inputs = safe_load_json(SST_PATH, {})
+    sst = build_sst(prices, rsi, sst_inputs)
+    data["SST"] = sst
+    data["SST_TOP5"] = top5_from_sst(sst)
+
+    data["Market"] = build_market_bullets()
+    data["last_update_utc"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    safe_write_json(LIVE_PATH, data)
+
+if __name__ == "__main__":
+    main()
 PY
 
       - name: Run updater
         run: python scripts/update_live.py
 
-      - name: Commit, rebase, push
+      - name: Commit, rebase, and push
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "auto: robust prices+RSI via fast_info fallback" || echo "No changes"
+          git commit -m "auto: populate Prices+RSI; robust fetch" || echo "No changes to commit"
           git pull --rebase --autostash origin main
           git push origin HEAD:main
