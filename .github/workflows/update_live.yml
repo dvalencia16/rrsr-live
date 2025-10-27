@@ -1,4 +1,4 @@
-\name: Update live data (prices + RSI + Market + SST)
+name: Update live data (prices + RSI + Market + SST)
 
 on:
   workflow_dispatch:
