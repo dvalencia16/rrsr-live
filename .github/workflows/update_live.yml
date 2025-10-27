@@ -8,7 +8,7 @@ on:
       - ".github/workflows/update_live.yml"
       - "sst_inputs.json"
   schedule:
-    - cron: "*/5 13-21 * * 1-5"
+    - cron: "*/10 13-21 * * 1-5"
 
 jobs:
   run:
@@ -56,6 +56,30 @@ jobs:
               with open(path, "w") as f:
                   json.dump(obj, f, indent=2, ensure_ascii=False)
 
+          # ---------- helpers ----------
+          def get_subframe(df, t):
+              """Return a OHLC dataframe for ticker t from yfinance download output."""
+              if df is None or df.empty:
+                  return None
+              cols = df.columns
+              if isinstance(cols, pd.MultiIndex):
+                  if t in df.columns.get_level_values(0):
+                      sub = df[t]
+                  else:
+                      return None
+              else:
+                  # single-ticker frame
+                  sub = df
+              return sub
+
+          def last_close(sub):
+              try:
+                  c = sub["Close"]
+                  c = c.dropna()
+                  return float(round(c.iloc[-1], 2)) if len(c) else None
+              except Exception:
+                  return None
+
           def rsi_wilder(series, period=14):
               delta = series.diff()
               gain = delta.clip(lower=0)
@@ -66,54 +90,53 @@ jobs:
               rsi = 100 - (100 / (1 + rs))
               return float(round(rsi.iloc[-1], 2))
 
+          # ---------- holdings prices + RSI ----------
           def fetch_prices_and_rsi(tickers):
               prices = {t: None for t in tickers}
               rsi    = {t: "data not available" for t in tickers}
+
+              # 1m intraday for last
               try:
-                  df1 = yf.download(tickers=tickers, period="1d", interval="1m",
-                                    progress=False, auto_adjust=False, group_by="ticker")
+                  d1 = yf.download(tickers=tickers, period="1d", interval="1m",
+                                   progress=False, auto_adjust=False, group_by="ticker")
               except Exception:
-                  df1 = None
+                  d1 = None
+
               for t in tickers:
-                  try:
-                      sub = df1 if isinstance(df1, pd.DataFrame) and "Close" in df1.columns else (df1.get(t) if df1 is not None else None)
-                      if sub is not None and not sub.empty:
-                          c = sub["Close"] if "Close" in sub else sub["Close"]
-                          if c is not None and not c.empty:
-                              prices[t] = float(round(c.dropna().iloc[-1], 2))
-                  except Exception:
-                      pass
+                  sub = get_subframe(d1, t)
+                  if sub is not None:
+                      prices[t] = last_close(sub)
+
+              # fill any missing with daily
               missing = [t for t,v in prices.items() if v is None]
               if missing:
                   try:
-                      df2 = yf.download(tickers=missing, period="5d", interval="1d",
-                                        progress=False, auto_adjust=False, group_by="ticker")
+                      d2 = yf.download(tickers=missing, period="5d", interval="1d",
+                                       progress=False, auto_adjust=False, group_by="ticker")
                   except Exception:
-                      df2 = None
+                      d2 = None
                   for t in missing:
+                      sub = get_subframe(d2, t)
+                      if sub is not None:
+                          prices[t] = last_close(sub)
+
+              # RSI from 6mo daily
+              try:
+                  d3 = yf.download(tickers=tickers, period="6mo", interval="1d",
+                                   progress=False, auto_adjust=False, group_by="ticker")
+              except Exception:
+                  d3 = None
+              for t in tickers:
+                  sub = get_subframe(d3, t)
+                  if sub is not None and len(sub) >= 20:
                       try:
-                          sub = df2 if isinstance(df2, pd.DataFrame) and "Close" in df2.columns else (df2.get(t) if df2 is not None else None)
-                          if sub is not None and not sub.empty:
-                              c = sub["Close"] if "Close" in sub else sub["Close"]
-                              if c is not None and not c.empty:
-                                  prices[t] = float(round(c.dropna().iloc[-1], 2))
+                          rsi[t] = rsi_wilder(sub["Close"])
                       except Exception:
                           pass
-              try:
-                  df3 = yf.download(tickers=tickers, period="6mo", interval="1d",
-                                    progress=False, auto_adjust=False, group_by="ticker")
-              except Exception:
-                  df3 = None
-              for t in tickers:
-                  try:
-                      sub = df3 if isinstance(df3, pd.DataFrame) and "Close" in df3.columns else (df3.get(t) if df3 is not None else None)
-                      if sub is not None and not sub.empty and len(sub) >= 20:
-                          close = sub["Close"] if "Close" in sub else sub["Close"]
-                          rsi[t] = rsi_wilder(close)
-                  except Exception:
-                      pass
+
               return prices, rsi
 
+          # ---------- SST ----------
           def build_sst(prices, rsi_map, sst_inputs):
               out = {}
               for tk, vals in sst_inputs.items():
@@ -126,7 +149,7 @@ jobs:
                       try: return round(x/y,2) if x is not None and y else None
                       except: return None
                   out[tk] = {
-                      "rsi": rsi_map.get(tk, "data not available") if rsi_map.get(tk) is not None else "data not available",
+                      "rsi": rsi_map.get(tk, "data not available"),
                       "si_percent_float": pct(si_sh, flt) if pct(si_sh, flt) is not None else "data not available",
                       "days_to_cover": div(si_sh, avgv) if div(si_sh, avgv) is not None else "data not available",
                       "entry": entry if entry is not None else "data not available",
@@ -166,6 +189,7 @@ jobs:
               rows.sort(key=lambda x: x["score"], reverse=True)
               return rows[:5]
 
+          # ---------- Market bullets ----------
           def build_market_bullets():
               out = {}; bullets = []
               for tk,label in [("SPY","SPY"),("QQQ","QQQ"),("^VIX","VIX")]:
@@ -184,6 +208,7 @@ jobs:
                       out[tk] = {"last":"data not available","pct_change":"data not available"}
               return {"ticks": out, "bullets": bullets, "sources": ["yfinance"]}
 
+          # ---------- main ----------
           def ensure_defaults():
               if not os.path.exists(LIVE_PATH):
                   safe_write_json(LIVE_PATH, {"Prices": {}, "RSI": {}, "SST": {}, "SST_TOP5": [], "Market": {}, "last_update_utc": ""})
@@ -197,13 +222,16 @@ jobs:
               ensure_defaults()
               tickers = [t.strip().upper() for t in os.getenv("TICKERS","").split(",") if t.strip()]
               data = safe_load_json(LIVE_PATH, {"Prices": {}, "RSI": {}, "SST": {}, "SST_TOP5": [], "Market": {}, "last_update_utc": ""})
+
               prices, rsi = fetch_prices_and_rsi(tickers)
               data["Prices"] = {t: (v if v is not None else "data not available") for t,v in prices.items()}
               data["RSI"]    = {t: rsi.get(t, "data not available") for t in tickers}
+
               sst_inputs = safe_load_json(SST_PATH, {})
               sst = build_sst(prices, rsi, sst_inputs)
               data["SST"] = sst
               data["SST_TOP5"] = top5_from_sst(sst)
+
               data["Market"] = build_market_bullets()
               data["last_update_utc"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
               safe_write_json(LIVE_PATH, data)
@@ -217,6 +245,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "auto: populate Prices+RSI; robust fetch" || echo "No changes to commit"
+          git commit -m "auto: fix MultiIndex handling; populate Prices/RSI/Market" || echo "No changes to commit"
           git pull --rebase --autostash origin main
           git push origin HEAD:main
