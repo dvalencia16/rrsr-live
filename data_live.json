@@ -173,13 +173,13 @@
     "BREADTH_50dma_pct": null
   },
   "Prices": {
-    "SCHD": 27.03,
-    "VTI": 333.77,
-    "VXUS": 74.95,
-    "XLV": 146.04,
-    "VNQ": 92.44,
-    "BND": 75.02,
-    "GEMI": 19.84
+    "SCHD": "data not available",
+    "VTI": "data not available",
+    "VXUS": "data not available",
+    "XLV": "data not available",
+    "VNQ": "data not available",
+    "BND": "data not available",
+    "GEMI": "data not available"
   },
   "RSI": {
     "SCHD": "data not available",
@@ -201,7 +201,7 @@
       "t2": 3.9,
       "last": "data not available",
       "sources": [
-        "User-supplied SI/float/avgvol in sst_inputs.json"
+        "sst_inputs.json"
       ]
     },
     "RIOT": {
@@ -214,7 +214,7 @@
       "t2": 10.2,
       "last": "data not available",
       "sources": [
-        "User-supplied SI/float/avgvol in sst_inputs.json"
+        "sst_inputs.json"
       ]
     },
     "AFRM": {
@@ -227,7 +227,7 @@
       "t2": 33.0,
       "last": "data not available",
       "sources": [
-        "User-supplied SI/float/avgvol in sst_inputs.json"
+        "sst_inputs.json"
       ]
     },
     "NVTS": {
@@ -240,7 +240,7 @@
       "t2": 6.3,
       "last": "data not available",
       "sources": [
-        "User-supplied SI/float/avgvol in sst_inputs.json"
+        "sst_inputs.json"
       ]
     },
     "SOFI": {
@@ -253,11 +253,11 @@
       "t2": 8.9,
       "last": "data not available",
       "sources": [
-        "User-supplied SI/float/avgvol in sst_inputs.json"
+        "sst_inputs.json"
       ]
     }
   },
-  "last_update_utc": "2025-10-27 14:57:39 UTC",
+  "last_update_utc": "2025-10-27 15:13:57 UTC",
   "SST_TOP5": [
     {
       "ticker": "PLUG",
@@ -272,7 +272,7 @@
         3.9
       ],
       "sources": [
-        "User-supplied SI/float/avgvol in sst_inputs.json"
+        "sst_inputs.json"
       ]
     },
     {
@@ -288,7 +288,7 @@
         8.9
       ],
       "sources": [
-        "User-supplied SI/float/avgvol in sst_inputs.json"
+        "sst_inputs.json"
       ]
     },
     {
@@ -304,7 +304,7 @@
         6.3
       ],
       "sources": [
-        "User-supplied SI/float/avgvol in sst_inputs.json"
+        "sst_inputs.json"
       ]
     },
     {
@@ -320,7 +320,7 @@
         10.2
       ],
       "sources": [
-        "User-supplied SI/float/avgvol in sst_inputs.json"
+        "sst_inputs.json"
       ]
     },
     {
@@ -336,8 +336,28 @@
         33.0
       ],
       "sources": [
-        "User-supplied SI/float/avgvol in sst_inputs.json"
+        "sst_inputs.json"
       ]
     }
-  ]
+  ],
+  "Market": {
+    "ticks": {
+      "SPY": {
+        "last": "data not available",
+        "pct_change": "data not available"
+      },
+      "QQQ": {
+        "last": "data not available",
+        "pct_change": "data not available"
+      },
+      "^VIX": {
+        "last": "data not available",
+        "pct_change": "data not available"
+      }
+    },
+    "bullets": [],
+    "sources": [
+      "yfinance"
+    ]
+  }
 }
