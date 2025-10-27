@@ -1,14 +1,12 @@
-name: Update live data (holdings prices + RSI + SST + Market)
+name: Update live data (prices + RSI + SST + Market)
 
 on:
   workflow_dispatch:
   push:
     branches: [ main ]
     paths:
-      - "scripts/**"
-      - "sst_inputs.json"
-      - "data_live.json"
       - ".github/workflows/update_live.yml"
+      - "sst_inputs.json"
   schedule:
     - cron: "*/5 13-21 * * 1-5"
 
@@ -35,11 +33,9 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           pip install --no-cache-dir yfinance==0.2.43 pandas==2.2.2 numpy==1.26.4
 
-      - name: Write updater script
-        shell: bash
+      - name: Update data_live.json
         run: |
-          mkdir -p scripts
-          cat > scripts/update_live.py <<'PY'
+          python - <<'PY'
 import json, os, time
 from datetime import datetime, timezone
 import numpy as np
@@ -201,16 +197,13 @@ def main():
     ensure_defaults()
     tickers = [t.strip().upper() for t in os.getenv("TICKERS","").split(",") if t.strip()]
     data = safe_load_json(LIVE_PATH, {"Prices": {}, "RSI": {}, "SST": {}, "SST_TOP5": [], "Market": {}, "last_update_utc": ""})
-
     prices, rsi = fetch_prices_and_rsi(tickers)
     data["Prices"] = {t: (v if v is not None else "data not available") for t,v in prices.items()}
     data["RSI"]    = {t: rsi.get(t, "data not available") for t in tickers}
-
     sst_inputs = safe_load_json(SST_PATH, {})
     sst = build_sst(prices, rsi, sst_inputs)
     data["SST"] = sst
     data["SST_TOP5"] = top5_from_sst(sst)
-
     data["Market"] = build_market_bullets()
     data["last_update_utc"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     safe_write_json(LIVE_PATH, data)
@@ -219,11 +212,7 @@ if __name__ == "__main__":
     main()
 PY
 
-      - name: Run updater
-        run: python scripts/update_live.py
-
       - name: Commit, rebase, and push
-        shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
