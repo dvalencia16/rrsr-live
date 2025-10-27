@@ -1,4 +1,4 @@
-name: Update live data (prices + RSI + Market + SST)
+\name: Update live data (prices + RSI + Market + SST)
 
 on:
   workflow_dispatch:
@@ -35,8 +35,7 @@ jobs:
           from datetime import datetime, timezone
           import numpy as np, pandas as pd, yfinance as yf
 
-          LIVE_PATH = "data_live.json"
-          SST_PATH  = "sst_inputs.json"
+          LIVE_PATH="data_live.json"; SST_PATH="sst_inputs.json"
 
           def jload(p, d):
               try:
@@ -46,37 +45,48 @@ jobs:
               with open(p,"w") as f: json.dump(o,f,indent=2,ensure_ascii=False)
 
           def rsi14(close):
-              d=close.diff()
-              up=d.clip(lower=0); dn=-d.clip(upper=0)
+              d=close.diff(); up=d.clip(lower=0); dn=-d.clip(upper=0)
               ag=up.ewm(alpha=1/14,adjust=False).mean()
               al=dn.ewm(alpha=1/14,adjust=False).mean().replace(0,1e-12)
               rs=ag/al
               return float(np.round(100-100/(1+rs.iloc[-1]),2))
 
-          def last_price_intraday(t):
-              for per,iv in [("1d","1m"),("5d","1d")]:
-                  try:
-                      df=yf.Ticker(t).history(period=per,interval=iv,auto_adjust=False)
-                      if not df.empty: return float(np.round(df["Close"].dropna().iloc[-1],2))
-                  except: pass
+          def last_price(t):
+              # F1: fast_info
+              try:
+                  p=float(np.round(yf.Ticker(t).fast_info.last_price,2))
+                  if p>0: return p
+              except: pass
+              # F2: 1m intraday
+              try:
+                  df=yf.Ticker(t).history(period="1d",interval="1m",auto_adjust=False)
+                  c=df["Close"].dropna()
+                  if len(c): return float(np.round(c.iloc[-1],2))
+              except: pass
+              # F3: daily close
+              try:
+                  df=yf.Ticker(t).history(period="5d",interval="1d",auto_adjust=False)
+                  c=df["Close"].dropna()
+                  if len(c): return float(np.round(c.iloc[-1],2))
+              except: pass
               return None
 
           def price_and_rsi(t):
-              last=last_price_intraday(t)
-              rsi="data not available"
+              p=last_price(t)
+              r="data not available"
               try:
                   df=yf.Ticker(t).history(period="6mo",interval="1d",auto_adjust=False)
-                  if len(df)>=20: rsi=rsi14(df["Close"])
+                  if len(df)>=20: r=rsi14(df["Close"])
               except: pass
-              return last, rsi
+              return p, r
 
-          def market_bullets():
+          def market():
               out={}; bullets=[]
               for tk,lab in [("SPY","SPY"),("QQQ","QQQ"),("^VIX","VIX")]:
                   try:
                       df=yf.Ticker(tk).history(period="1d",interval="1m",auto_adjust=False)
-                      if not df.empty:
-                          c=df["Close"].dropna()
+                      c=df["Close"].dropna()
+                      if len(c):
                           last=float(np.round(c.iloc[-1],2))
                           pct=float(np.round((c.iloc[-1]/c.iloc[0]-1)*100,2))
                           out[tk]={"last":last,"pct_change":pct}; bullets.append(f"{lab} {pct}% today")
@@ -106,7 +116,6 @@ jobs:
                       "last":  prices.get(tk,"data not available"),
                       "sources": ["sst_inputs.json"]
                   }
-              # rank top 5
               def num(x):
                   try: return float(x)
                   except: return None
@@ -118,7 +127,6 @@ jobs:
               rows.sort(reverse=True)
               return out,[{"ticker":tk,**out[tk]} for _,tk in rows[:5]]
 
-          # init structures
           data=jload(LIVE_PATH,{"Prices":{}, "RSI":{}, "SST":{}, "SST_TOP5":[], "Market":{}, "last_update_utc":""})
           sstin=jload(SST_PATH,{
               "PLUG":{"si_shares":100_000_000,"float_shares":600_000_000,"avg_vol_30d":25_000_000,"entry":3.10,"stop":2.72,"t1":3.45,"t2":3.90},
@@ -129,25 +137,23 @@ jobs:
           })
 
           tickers=[t.strip().upper() for t in os.getenv("TICKERS","").split(",") if t.strip()]
-          prices={}; rsimap={}
+          prices={}; rsi={}
           for t in tickers:
-              last,rsi=price_and_rsi(t)
-              prices[t]=last if last is not None else "data not available"
-              rsimap[t]=rsi
-              time.sleep(0.2)
+              lp, rv = price_and_rsi(t)
+              prices[t]=lp if lp is not None else "data not available"
+              rsi[t]=rv
+              time.sleep(0.15)
 
-          sst, top5 = build_sst(prices, rsimap, sstin)
-          market = market_bullets()
+          sst, top5 = build_sst(prices, rsi, sstin)
+          mkt = market()
 
-          # write all expected keys
-          data["Prices"] = prices
-          data["quotes"] = prices                       # renderer expects 'quotes'
-          data["RSI"]    = rsimap
-          data["SST"]    = sst
-          data["SST_TOP5"]= top5
-          data["Market"] = market if market else {"ticks": {}, "bullets": [], "sources": []}
+          data["Prices"]=prices
+          data["quotes"]=prices   # renderer expects 'quotes'
+          data["RSI"]=rsi
+          data["SST"]=sst
+          data["SST_TOP5"]=top5
+          data["Market"]=mkt if mkt else {"ticks": {}, "bullets": [], "sources": []}
           data["last_update_utc"]=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-
           jdump(LIVE_PATH,data)
           PY
 
@@ -156,6 +162,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "auto: fill Prices→quotes, RSI, Market, SST" || echo "No changes"
+          git commit -m "auto: robust quotes/RSI/Market; mirror Prices->quotes" || echo "No changes"
           git pull --rebase --autostash origin main
           git push origin HEAD:main
