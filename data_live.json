@@ -111,56 +111,13 @@
     ]
   },
   "quotes": {
-    "BND": {
-      "last": 75.02,
-      "rsi": null,
-      "ts": 1761339051
-    },
-    "BNDX": {
-      "last": 49.78,
-      "rsi": null,
-      "ts": 1761339051
-    },
-    "FMCC": {
-      "last": 11.357,
-      "rsi": null,
-      "ts": 1761339051
-    },
-    "FNMA": {
-      "last": 11.93,
-      "rsi": null,
-      "ts": 1761339051
-    },
-    "GEMI": {
-      "last": 19.76,
-      "rsi": null,
-      "ts": 1761339051
-    },
-    "SCHD": {
-      "last": 27.03,
-      "rsi": null,
-      "ts": 1761339051
-    },
-    "VNQ": {
-      "last": 92.43,
-      "rsi": null,
-      "ts": 1761339051
-    },
-    "VTI": {
-      "last": 333.71,
-      "rsi": null,
-      "ts": 1761339051
-    },
-    "VXUS": {
-      "last": 74.95,
-      "rsi": null,
-      "ts": 1761339051
-    },
-    "XLV": {
-      "last": 146.03,
-      "rsi": null,
-      "ts": 1761339051
-    }
+    "SCHD": "data not available",
+    "VTI": "data not available",
+    "VXUS": "data not available",
+    "XLV": "data not available",
+    "VNQ": "data not available",
+    "BND": "data not available",
+    "GEMI": "data not available"
   },
   "macro": {
     "ts": 1761339195,
@@ -257,7 +214,7 @@
       ]
     }
   },
-  "last_update_utc": "2025-10-27 22:59:55 UTC",
+  "last_update_utc": "2025-10-27 23:34:50 UTC",
   "SST_TOP5": [
     {
       "ticker": "PLUG",
