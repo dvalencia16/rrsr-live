@@ -1,4 +1,4 @@
-name: Update live data (prices + RSI + SST + Market)
+name: Update live data (prices + RSI + Market + SST)
 
 on:
   workflow_dispatch:
@@ -13,238 +13,144 @@ on:
 jobs:
   run:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    permissions: { contents: write }
     env:
       TICKERS: "SCHD,VTI,VXUS,XLV,VNQ,BND,GEMI"
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
 
       - name: Install deps
         run: |
-          python -m pip install --upgrade pip setuptools wheel
-          pip install --no-cache-dir yfinance==0.2.43 pandas==2.2.2 numpy==1.26.4
+          python -m pip install --upgrade pip
+          pip install yfinance==0.2.43 pandas==2.2.2 numpy==1.26.4
 
       - name: Update data_live.json
         run: |
           python - <<'PY'
           import json, os, time
           from datetime import datetime, timezone
-          import numpy as np
-          import pandas as pd
-          import yfinance as yf
+          import numpy as np, pandas as pd, yfinance as yf
 
           LIVE_PATH = "data_live.json"
           SST_PATH  = "sst_inputs.json"
 
-          def safe_load_json(path, default):
+          def jload(p, d): 
               try:
-                  with open(path, "r") as f:
-                      return json.load(f)
-              except Exception:
-                  return default
+                  with open(p) as f: return json.load(f)
+              except: return d
+          def jdump(p, o):
+              with open(p,"w") as f: json.dump(o,f,indent=2,ensure_ascii=False)
 
-          def safe_write_json(path, obj):
-              with open(path, "w") as f:
-                  json.dump(obj, f, indent=2, ensure_ascii=False)
+          def rsi14(close):
+              d=close.diff()
+              up=d.clip(lower=0); dn=-d.clip(upper=0)
+              ag=up.ewm(alpha=1/14,adjust=False).mean()
+              al=dn.ewm(alpha=1/14,adjust=False).mean().replace(0,1e-12)
+              rs=ag/al
+              return float(np.round(100-100/(1+rs.iloc[-1]),2))
 
-          # ---------- helpers ----------
-          def get_subframe(df, t):
-              """Return a OHLC dataframe for ticker t from yfinance download output."""
-              if df is None or df.empty:
-                  return None
-              cols = df.columns
-              if isinstance(cols, pd.MultiIndex):
-                  if t in df.columns.get_level_values(0):
-                      sub = df[t]
-                  else:
-                      return None
-              else:
-                  # single-ticker frame
-                  sub = df
-              return sub
-
-          def last_close(sub):
-              try:
-                  c = sub["Close"]
-                  c = c.dropna()
-                  return float(round(c.iloc[-1], 2)) if len(c) else None
-              except Exception:
-                  return None
-
-          def rsi_wilder(series, period=14):
-              delta = series.diff()
-              gain = delta.clip(lower=0)
-              loss = -delta.clip(upper=0)
-              avg_gain = gain.ewm(alpha=1/period, adjust=False).mean()
-              avg_loss = loss.ewm(alpha=1/period, adjust=False).mean()
-              rs = avg_gain / (avg_loss.replace(0, 1e-12))
-              rsi = 100 - (100 / (1 + rs))
-              return float(round(rsi.iloc[-1], 2))
-
-          # ---------- holdings prices + RSI ----------
-          def fetch_prices_and_rsi(tickers):
-              prices = {t: None for t in tickers}
-              rsi    = {t: "data not available" for t in tickers}
-
-              # 1m intraday for last
-              try:
-                  d1 = yf.download(tickers=tickers, period="1d", interval="1m",
-                                   progress=False, auto_adjust=False, group_by="ticker")
-              except Exception:
-                  d1 = None
-
-              for t in tickers:
-                  sub = get_subframe(d1, t)
-                  if sub is not None:
-                      prices[t] = last_close(sub)
-
-              # fill any missing with daily
-              missing = [t for t,v in prices.items() if v is None]
-              if missing:
+          def last_price_intraday(t):
+              for (per,iv) in [("1d","1m"),("5d","1d")]:
                   try:
-                      d2 = yf.download(tickers=missing, period="5d", interval="1d",
-                                       progress=False, auto_adjust=False, group_by="ticker")
-                  except Exception:
-                      d2 = None
-                  for t in missing:
-                      sub = get_subframe(d2, t)
-                      if sub is not None:
-                          prices[t] = last_close(sub)
+                      df=yf.Ticker(t).history(period=per,interval=iv,auto_adjust=False)
+                      if not df.empty: return float(np.round(df["Close"].dropna().iloc[-1],2))
+                  except: pass
+              return None
 
-              # RSI from 6mo daily
+          def price_and_rsi(t):
+              last=last_price_intraday(t)
+              r=None
               try:
-                  d3 = yf.download(tickers=tickers, period="6mo", interval="1d",
-                                   progress=False, auto_adjust=False, group_by="ticker")
-              except Exception:
-                  d3 = None
-              for t in tickers:
-                  sub = get_subframe(d3, t)
-                  if sub is not None and len(sub) >= 20:
-                      try:
-                          rsi[t] = rsi_wilder(sub["Close"])
-                      except Exception:
-                          pass
+                  df=yf.Ticker(t).history(period="6mo",interval="1d",auto_adjust=False)
+                  if len(df)>=20: r=rsi14(df["Close"])
+              except: pass
+              return last, (r if r is not None else "data not available")
 
-              return prices, rsi
+          def market_bullets():
+              out={}; bullets=[]
+              for tk,lab in [("SPY","SPY"),("QQQ","QQQ"),("^VIX","VIX")]:
+                  try:
+                      df=yf.Ticker(tk).history(period="1d",interval="1m",auto_adjust=False)
+                      if not df.empty:
+                          c=df["Close"].dropna()
+                          last=float(np.round(c.iloc[-1],2))
+                          pct=float(np.round((c.iloc[-1]/c.iloc[0]-1)*100,2))
+                          out[tk]={"last":last,"pct_change":pct}; bullets.append(f"{lab} {pct}% today")
+                      else:
+                          out[tk]={"last":"data not available","pct_change":"data not available"}
+                  except:
+                      out[tk]={"last":"data not available","pct_change":"data not available"}
+              return {"ticks":out,"bullets":bullets,"sources":["yfinance"]}
 
-          # ---------- SST ----------
-          def build_sst(prices, rsi_map, sst_inputs):
-              out = {}
-              for tk, vals in sst_inputs.items():
-                  si_sh = vals.get("si_shares"); flt = vals.get("float_shares"); avgv = vals.get("avg_vol_30d")
-                  entry = vals.get("entry"); stop = vals.get("stop"); t1 = vals.get("t1"); t2 = vals.get("t2")
-                  def pct(x,y):
-                      try: return round(100*x/y,2) if x is not None and y else None
-                      except: return None
-                  def div(x,y):
-                      try: return round(x/y,2) if x is not None and y else None
-                      except: return None
-                  out[tk] = {
-                      "rsi": rsi_map.get(tk, "data not available"),
-                      "si_percent_float": pct(si_sh, flt) if pct(si_sh, flt) is not None else "data not available",
-                      "days_to_cover": div(si_sh, avgv) if div(si_sh, avgv) is not None else "data not available",
-                      "entry": entry if entry is not None else "data not available",
-                      "stop":  stop  if stop  is not None else "data not available",
-                      "t1":    t1    if t1    is not None else "data not available",
-                      "t2":    t2    if t2    is not None else "data not available",
-                      "last":  prices.get(tk, "data not available"),
+          def build_sst(prices, rsimap, sstin):
+              def pct(x,y):
+                  try: return round(100*x/y,2)
+                  except: return None
+              def div(x,y):
+                  try: return round(x/y,2)
+                  except: return None
+              out={}
+              for tk,v in sstin.items():
+                  out[tk]={
+                      "rsi": rsimap.get(tk,"data not available"),
+                      "si_percent_float": pct(v.get("si_shares"),v.get("float_shares")) or "data not available",
+                      "days_to_cover": div(v.get("si_shares"),v.get("avg_vol_30d")) or "data not available",
+                      "entry": v.get("entry","data not available"),
+                      "stop":  v.get("stop","data not available"),
+                      "t1":    v.get("t1","data not available"),
+                      "t2":    v.get("t2","data not available"),
+                      "last":  prices.get(tk,"data not available"),
                       "sources": ["sst_inputs.json"]
                   }
-              return out
+              # rank
+              def num(x):
+                  try: return float(x)
+                  except: return None
+              rows=[]
+              for tk,v in out.items():
+                  r=num(v["rsi"]); si=num(v["si_percent_float"]); dtc=num(v["days_to_cover"])
+                  s=(0.5*(si or 0)/40)+(0.3*(dtc or 0)/10)+(0.2*max(0,70-(r or 70))/70)
+                  rows.append((s,tk))
+              rows.sort(reverse=True)
+              return out,[{"ticker":tk,**out[tk]} for _,tk in rows[:5]]
 
-          def _to_num(x):
-              try: return float(x)
-              except: return None
+          # init files
+          data=jload(LIVE_PATH,{"Prices":{}, "RSI":{}, "SST":{}, "SST_TOP5":[], "Market":{}, "last_update_utc":""})
+          sstin=jload(SST_PATH,{
+              "PLUG":{"si_shares":100_000_000,"float_shares":600_000_000,"avg_vol_30d":25_000_000,"entry":3.10,"stop":2.72,"t1":3.45,"t2":3.90},
+              "RIOT":{"si_shares":36_000_000,"float_shares":260_000_000,"avg_vol_30d":21_000_000,"entry":8.60,"stop":7.80,"t1":9.40,"t2":10.20},
+              "SOFI":{"si_shares":120_000_000,"float_shares":930_000_000,"avg_vol_30d":46_000_000,"entry":7.50,"stop":6.90,"t1":8.20,"t2":8.90},
+              "NVTS":{"si_shares":95_000_000,"float_shares":110_000_000,"avg_vol_30d":24_000_000,"entry":5.10,"stop":4.70,"t1":5.70,"t2":6.30},
+              "AFRM":{"si_shares":71_000_000,"float_shares":250_000_000,"avg_vol_30d":12_000_000,"entry":28.50,"stop":26.90,"t1":30.80,"t2":33.00}
+          })
 
-          def squeeze_score(item):
-              rsi = _to_num(item.get("rsi")); si = _to_num(item.get("si_percent_float")); dtc = _to_num(item.get("days_to_cover"))
-              si_norm  = min(max((si or 0.0), 0.0), 40.0)/40.0
-              dtc_norm = min(max((dtc or 0.0), 0.0), 10.0)/10.0
-              rsi_norm = 0.0 if rsi is None else max(0.0, 70.0 - rsi)/70.0
-              return round((0.5*si_norm + 0.3*dtc_norm + 0.2*rsi_norm)*100, 1)
+          tickers=[t.strip().upper() for t in os.getenv("TICKERS","").split(",") if t.strip()]
+          prices={}; rsimap={}
+          for t in tickers:
+              last,rsi=price_and_rsi(t)
+              prices[t]=last if last is not None else "data not available"
+              rsimap[t]=rsi
+              time.sleep(0.2)
 
-          def top5_from_sst(sst):
-              rows = []
-              for tk,v in sst.items():
-                  rows.append({
-                      "ticker": tk,
-                      "score": squeeze_score(v),
-                      "rsi": v.get("rsi"),
-                      "si_percent_float": v.get("si_percent_float"),
-                      "days_to_cover": v.get("days_to_cover"),
-                      "entry": v.get("entry"),
-                      "stop": v.get("stop"),
-                      "targets": [v.get("t1"), v.get("t2")],
-                      "sources": v.get("sources", [])
-                  })
-              rows.sort(key=lambda x: x["score"], reverse=True)
-              return rows[:5]
-
-          # ---------- Market bullets ----------
-          def build_market_bullets():
-              out = {}; bullets = []
-              for tk,label in [("SPY","SPY"),("QQQ","QQQ"),("^VIX","VIX")]:
-                  try:
-                      d1 = yf.download(tk, period="1d", interval="1m", progress=False, auto_adjust=False)
-                      if d1 is not None and not d1.empty:
-                          last = round(float(d1["Close"].dropna().iloc[-1]),2)
-                          base = float(d1["Close"].dropna().iloc[0])
-                          pct = round(100*(last/base-1),2) if base else None
-                          out[tk] = {"last": last, "pct_change": pct}
-                          if pct is not None:
-                              bullets.append(f"{label} {pct}% today")
-                      else:
-                          out[tk] = {"last":"data not available","pct_change":"data not available"}
-                  except Exception:
-                      out[tk] = {"last":"data not available","pct_change":"data not available"}
-              return {"ticks": out, "bullets": bullets, "sources": ["yfinance"]}
-
-          # ---------- main ----------
-          def ensure_defaults():
-              if not os.path.exists(LIVE_PATH):
-                  safe_write_json(LIVE_PATH, {"Prices": {}, "RSI": {}, "SST": {}, "SST_TOP5": [], "Market": {}, "last_update_utc": ""})
-              if not os.path.exists(SST_PATH):
-                  safe_write_json(SST_PATH, {
-                      "PLUG": {"si_shares": 100000000, "float_shares": 600000000, "avg_vol_30d": 25000000, "entry": 3.10, "stop": 2.72, "t1": 3.45, "t2": 3.90},
-                      "RIOT": {"si_shares": 36000000,  "float_shares": 260000000, "avg_vol_30d": 21000000, "entry": 8.60, "stop": 7.80, "t1": 9.40, "t2": 10.20}
-                  })
-
-          def main():
-              ensure_defaults()
-              tickers = [t.strip().upper() for t in os.getenv("TICKERS","").split(",") if t.strip()]
-              data = safe_load_json(LIVE_PATH, {"Prices": {}, "RSI": {}, "SST": {}, "SST_TOP5": [], "Market": {}, "last_update_utc": ""})
-
-              prices, rsi = fetch_prices_and_rsi(tickers)
-              data["Prices"] = {t: (v if v is not None else "data not available") for t,v in prices.items()}
-              data["RSI"]    = {t: rsi.get(t, "data not available") for t in tickers}
-
-              sst_inputs = safe_load_json(SST_PATH, {})
-              sst = build_sst(prices, rsi, sst_inputs)
-              data["SST"] = sst
-              data["SST_TOP5"] = top5_from_sst(sst)
-
-              data["Market"] = build_market_bullets()
-              data["last_update_utc"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-              safe_write_json(LIVE_PATH, data)
-
-          if __name__ == "__main__":
-              main()
+          data["Prices"]=prices
+          data["RSI"]=rsimap
+          sst, top5 = build_sst(prices, rsimap, sstin)
+          data["SST"]=sst
+          data["SST_TOP5"]=top5
+          data["Market"]=market_bullets()
+          data["last_update_utc"]=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+          jdump(LIVE_PATH,data)
           PY
 
-      - name: Commit, rebase, and push
+      - name: Commit & push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "auto: fix MultiIndex handling; populate Prices/RSI/Market" || echo "No changes to commit"
+          git commit -m "auto: fill Prices, RSI, Market, SST" || echo "No changes"
           git pull --rebase --autostash origin main
           git push origin HEAD:main
