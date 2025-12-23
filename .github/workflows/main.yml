@@ -1,4 +1,7 @@
 name: Build rrsr-live JSON
+permissions:
+  contents: write
+
 on:
   workflow_dispatch:
   push:
@@ -8,16 +11,32 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install -r requirements.txt
-      - run: python scripts/build_live_json.py
-      - name: Commit data_live.json
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Build live JSON
+        run: python scripts/build_live_json.py
+
+      - name: Commit
         run: |
           git config user.name "rrsr-bot"
           git config user.email "actions@github"
           git add data_live.json
           git diff --quiet || git commit -m "update data_live.json"
-      - run: git push
+
+      - name: Pull (rebase) then Push
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"
+          git pull --rebase origin "$BRANCH" || true
+          git push origin "HEAD:$BRANCH"
