@@ -1,0 +1,154 @@
+{
+  "generated_at_utc": "2025-12-23T21:25:43+00:00",
+  "universe": [
+    "VTI",
+    "VXUS",
+    "SCHD",
+    "BND",
+    "BNDX",
+    "XLV",
+    "VNQ",
+    "GEMI",
+    "SPY",
+    "QQQ",
+    "^VIX"
+  ],
+  "tickers": {
+    "VTI": {
+      "ticker": "VTI",
+      "last": null,
+      "prev_close": null,
+      "change": null,
+      "change_pct": null,
+      "rsi14": null,
+      "currency": null,
+      "source": "yfinance",
+      "error": "no_history"
+    },
+    "VXUS": {
+      "ticker": "VXUS",
+      "last": null,
+      "prev_close": null,
+      "change": null,
+      "change_pct": null,
+      "rsi14": null,
+      "currency": null,
+      "source": "yfinance",
+      "error": "no_history"
+    },
+    "SCHD": {
+      "ticker": "SCHD",
+      "last": null,
+      "prev_close": null,
+      "change": null,
+      "change_pct": null,
+      "rsi14": null,
+      "currency": null,
+      "source": "yfinance",
+      "error": "no_history"
+    },
+    "BND": {
+      "ticker": "BND",
+      "last": null,
+      "prev_close": null,
+      "change": null,
+      "change_pct": null,
+      "rsi14": null,
+      "currency": null,
+      "source": "yfinance",
+      "error": "no_history"
+    },
+    "BNDX": {
+      "ticker": "BNDX",
+      "last": null,
+      "prev_close": null,
+      "change": null,
+      "change_pct": null,
+      "rsi14": null,
+      "currency": null,
+      "source": "yfinance",
+      "error": "no_history"
+    },
+    "XLV": {
+      "ticker": "XLV",
+      "last": null,
+      "prev_close": null,
+      "change": null,
+      "change_pct": null,
+      "rsi14": null,
+      "currency": null,
+      "source": "yfinance",
+      "error": "no_history"
+    },
+    "VNQ": {
+      "ticker": "VNQ",
+      "last": null,
+      "prev_close": null,
+      "change": null,
+      "change_pct": null,
+      "rsi14": null,
+      "currency": null,
+      "source": "yfinance",
+      "error": "no_history"
+    },
+    "GEMI": {
+      "ticker": "GEMI",
+      "last": null,
+      "prev_close": null,
+      "change": null,
+      "change_pct": null,
+      "rsi14": null,
+      "currency": null,
+      "source": "yfinance",
+      "error": "no_history"
+    },
+    "SPY": {
+      "ticker": "SPY",
+      "last": null,
+      "prev_close": null,
+      "change": null,
+      "change_pct": null,
+      "rsi14": null,
+      "currency": null,
+      "source": "yfinance",
+      "error": "no_history"
+    },
+    "QQQ": {
+      "ticker": "QQQ",
+      "last": null,
+      "prev_close": null,
+      "change": null,
+      "change_pct": null,
+      "rsi14": null,
+      "currency": null,
+      "source": "yfinance",
+      "error": "no_history"
+    },
+    "^VIX": {
+      "ticker": "^VIX",
+      "last": null,
+      "prev_close": null,
+      "change": null,
+      "change_pct": null,
+      "rsi14": null,
+      "currency": null,
+      "source": "yfinance",
+      "error": "no_history"
+    }
+  },
+  "market": {
+    "vix": {
+      "last": null,
+      "change_pct": null,
+      "source": "yfinance"
+    }
+  },
+  "squeeze_top5": [],
+  "notes": {
+    "rsi_period": 14,
+    "sources": [
+      "Yahoo Finance via yfinance"
+    ],
+    "disclaimer": "Education only. Not investment advice."
+  }
+}
