@@ -32,15 +32,15 @@ jobs:
         run: |
           echo "=== repo root ==="
           ls -la
-          echo "=== first 60 lines of data_live.json ==="
-          head -n 60 data_live.json || (echo "data_live.json missing" && exit 1)
+          echo "=== first 40 lines of data_live.json ==="
+          head -n 40 data_live.json || (echo "data_live.json missing" && exit 1)
 
-      - name: Commit data_live.json
+      - name: Commit data_live.json (create or update)
         run: |
           git config user.name "rrsr-bot"
           git config user.email "actions@github"
-          git add data_live.json
-          git diff --quiet || git commit -m "update data_live.json"
+          git add -A
+          git commit -m "update data_live.json" || echo "no changes to commit"
 
       - name: Pull (rebase) then Push
         run: |
