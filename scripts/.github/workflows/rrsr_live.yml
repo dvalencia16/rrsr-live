@@ -1,0 +1,37 @@
+name: Build rrsr-live JSON
+
+on:
+  schedule:
+    - cron: "*/15 13-21 * * 1-5"  # every 15 min, 13:00–21:59 UTC, Mon–Fri
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Build live JSON
+        run: python scripts/build_live_json.py
+
+      - name: Commit data_live.json
+        run: |
+          git config user.name "rrsr-bot"
+          git config user.email "actions@github"
+          git add data_live.json
+          git diff --quiet && echo "No changes" || git commit -m "update data_live.json"
+
+      - name: Push
+        if: success()
+        run: git push
