@@ -28,7 +28,14 @@ jobs:
       - name: Build live JSON
         run: python scripts/build_live_json.py
 
-      - name: Commit
+      - name: Show files and preview JSON
+        run: |
+          echo "=== repo root ==="
+          ls -la
+          echo "=== first 60 lines of data_live.json ==="
+          head -n 60 data_live.json || (echo "data_live.json missing" && exit 1)
+
+      - name: Commit data_live.json
         run: |
           git config user.name "rrsr-bot"
           git config user.email "actions@github"
@@ -40,3 +47,9 @@ jobs:
           BRANCH="${GITHUB_REF_NAME}"
           git pull --rebase origin "$BRANCH" || true
           git push origin "HEAD:$BRANCH"
+
+      - name: Upload JSON artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: data_live.json
+          path: data_live.json
