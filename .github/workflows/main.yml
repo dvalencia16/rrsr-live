@@ -1,0 +1,23 @@
+name: Build rrsr-live JSON
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - run: python scripts/build_live_json.py
+      - name: Commit data_live.json
+        run: |
+          git config user.name "rrsr-bot"
+          git config user.email "actions@github"
+          git add data_live.json
+          git diff --quiet || git commit -m "update data_live.json"
+      - run: git push
